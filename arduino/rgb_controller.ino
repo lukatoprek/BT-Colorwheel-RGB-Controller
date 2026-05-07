@@ -1,0 +1,85 @@
+/*
+  rgb_controller.ino
+  Receives "R,G,B#" commands from Android app via HC-06 (Bluetooth Classic SPP)
+  and applies PWM to an RGB LED.
+
+  Wiring:
+    HC-06 VCC  → 5V
+    HC-06 GND  → GND
+    HC-06 TX   → Pin 2 (SoftwareSerial RX)
+    HC-06 RX   → Pin 3 via 1kΩ/2kΩ voltage divider (3.3V logic)
+
+    Pin 9  → 220Ω → LED R
+    Pin 6  → 220Ω → LED G
+    Pin 5  → 220Ω → LED B
+    GND    → LED cathode (common cathode)
+*/
+
+#include <SoftwareSerial.h>
+
+// HC-06: RX on pin 2, TX on pin 3
+SoftwareSerial bt(2, 3);
+
+const int PIN_R = 9;
+const int PIN_G = 6;
+const int PIN_B = 5;
+
+char buf[16];
+int  bufPos = 0;
+
+void setup() {
+  pinMode(PIN_R, OUTPUT);
+  pinMode(PIN_G, OUTPUT);
+  pinMode(PIN_B, OUTPUT);
+
+  // Start all channels off
+  analogWrite(PIN_R, 0);
+  analogWrite(PIN_G, 0);
+  analogWrite(PIN_B, 0);
+
+  bt.begin(9600);
+  Serial.begin(9600);
+  Serial.println("RGB Controller ready");
+}
+
+void loop() {
+  while (bt.available()) {
+    char c = bt.read();
+
+    if (c == '#') {
+      // Null-terminate and parse "R,G,B"
+      buf[bufPos] = '\0';
+      bufPos = 0;
+      parseAndApply(buf);
+    } else if (bufPos < (int)(sizeof(buf) - 1)) {
+      buf[bufPos++] = c;
+    }
+    // Silently discard if buffer overflows (malformed message)
+  }
+}
+
+void parseAndApply(const char* msg) {
+  int r = 0, g = 0, b = 0;
+
+  // sscanf is available in Arduino and handles the "R,G,B" format cleanly
+  int matched = sscanf(msg, "%d,%d,%d", &r, &g, &b);
+  if (matched != 3) {
+    Serial.print("Bad msg: ");
+    Serial.println(msg);
+    return;
+  }
+
+  // Clamp to valid PWM range
+  r = constrain(r, 0, 255);
+  g = constrain(g, 0, 255);
+  b = constrain(b, 0, 255);
+
+  analogWrite(PIN_R, r);
+  analogWrite(PIN_G, g);
+  analogWrite(PIN_B, b);
+
+  Serial.print("RGB → ");
+  Serial.print(r); Serial.print(", ");
+  Serial.print(g); Serial.print(", ");
+  Serial.println(b);
+}

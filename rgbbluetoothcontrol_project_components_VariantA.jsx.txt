@@ -1,0 +1,288 @@
+// Variant A — Material 3 light (default Android look)
+// Clean, professional, system-aware. Uses M3 surface tones.
+//
+// Connection state: 'disconnected' | 'connecting' | 'connected' | 'reconnecting'
+// Reconnect = disconnect → connecting → connected (brief flash through the
+// intermediate state so the user sees the handshake happened).
+
+function VariantA({
+  connectionState, device, color, ledOn,
+  setLedOn, onConnect, onReconnect, onChangeDevice, onChange,
+  recents = [], onPickRecent,
+}) {
+  const [r, g, b] = hsvToRgb(color.h, color.s, color.v);
+  const hex = rgbToHex(r, g, b);
+
+  const M3 = {
+    bg: '#FAF9F6',
+    surface: '#FFFFFF',
+    surfaceVar: '#F1EEE8',
+    outline: '#E2DFD8',
+    onSurface: '#1C1B1A',
+    onSurfaceVar: '#5C5B56',
+    primary: '#475D50',
+    primaryContainer: '#CBE5D2',
+    onPrimary: '#FFFFFF',
+    error: '#BA1A1A',
+    warning: '#B26A00',
+    success: '#4F7D4A',
+  };
+
+  const connected = connectionState === 'connected';
+  const busy = connectionState === 'connecting' || connectionState === 'reconnecting';
+  const live = connected && ledOn;
+
+  const statusMeta = {
+    connected:     { label: 'Connected',     dot: M3.success, sub: device },
+    connecting:    { label: 'Connecting…',   dot: M3.warning, sub: device || 'Opening socket' },
+    reconnecting:  { label: 'Reconnecting…', dot: M3.warning, sub: device },
+    disconnected:  { label: 'Not connected', dot: M3.error,   sub: 'Select a device to begin' },
+  }[connectionState];
+
+  return (
+    <div style={{
+      background: M3.bg,
+      fontFamily: 'Roboto, system-ui, sans-serif',
+      color: M3.onSurface,
+      minHeight: '100%',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      {/* App bar */}
+      <div style={{ padding: '16px 20px 8px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: 12,
+          background: M3.primaryContainer,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: M3.primary,
+        }}>
+          <Icon name="chip" size={20} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 20, fontWeight: 500, letterSpacing: -0.2 }}>RGB Control</div>
+          <div style={{ fontSize: 12, color: M3.onSurfaceVar }}>HC-06 · Croduino</div>
+        </div>
+      </div>
+
+      {/* Status card */}
+      <div style={{ padding: '8px 20px' }}>
+        <div style={{
+          background: M3.surface,
+          border: `1px solid ${M3.outline}`,
+          borderRadius: 20,
+          padding: '14px 16px',
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <div style={{ position: 'relative', width: 10, height: 10 }}>
+            <div style={{
+              width: 10, height: 10, borderRadius: '50%',
+              background: statusMeta.dot,
+              boxShadow: connected ? `0 0 0 4px ${statusMeta.dot}22` : 'none',
+              animation: connected ? 'pulseA 2s infinite' : (busy ? 'blinkA 1s infinite' : 'none'),
+            }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{statusMeta.label}</div>
+            <div style={{
+              fontSize: 12, color: M3.onSurfaceVar,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>{statusMeta.sub}</div>
+          </div>
+          <div style={{
+            fontSize: 11, fontFamily: 'JetBrains Mono, monospace',
+            color: M3.onSurfaceVar, letterSpacing: 0.5,
+          }}>
+            {connected ? '9600 bps' : '—'}
+          </div>
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ padding: '12px 20px', display: 'flex', gap: 10 }}>
+        <button
+          onClick={connected ? onReconnect : onConnect}
+          disabled={busy}
+          style={{
+            flex: 1, height: 44, borderRadius: 22, border: 'none',
+            background: busy ? M3.surfaceVar : M3.primary,
+            color: busy ? M3.onSurfaceVar : M3.onPrimary,
+            fontSize: 14, fontWeight: 500, fontFamily: 'inherit',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            cursor: busy ? 'wait' : 'pointer',
+            transition: 'background .2s, color .2s',
+          }}>
+          {busy ? (
+            <div style={{
+              width: 16, height: 16, borderRadius: '50%',
+              border: `2px solid ${M3.onSurfaceVar}40`,
+              borderTopColor: M3.onSurfaceVar,
+              animation: 'spinA 0.8s linear infinite',
+            }} />
+          ) : (
+            <Icon name="bluetooth" size={16} />
+          )}
+          {busy ? '…' : (connected ? 'Reconnect' : 'Connect')}
+        </button>
+        <button
+          onClick={onChangeDevice}
+          disabled={busy}
+          style={{
+            flex: 1, height: 44, borderRadius: 22,
+            background: 'transparent', color: M3.primary,
+            border: `1px solid ${M3.outline}`,
+            fontSize: 14, fontWeight: 500, fontFamily: 'inherit',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            cursor: busy ? 'not-allowed' : 'pointer',
+            opacity: busy ? 0.5 : 1,
+          }}>
+          <Icon name="swap" size={16} />
+          Change device
+        </button>
+      </div>
+
+      {/* Color wheel */}
+      <div style={{
+        flex: 1,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        padding: '16px 20px 8px',
+        gap: 18,
+      }}>
+        <div style={{ position: 'relative' }}>
+          <ColorWheel
+            size={280}
+            enabled={live}
+            color={color}
+            onChange={onChange}
+          />
+          {/* Busy overlay — preserves wheel but blocks input */}
+          {busy && (
+            <div style={{
+              position: 'absolute', inset: 0, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.6)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13, fontWeight: 500, color: M3.onSurface,
+            }}>
+              {connectionState === 'reconnecting' ? 'Reconnecting…' : 'Connecting…'}
+            </div>
+          )}
+        </div>
+
+        {/* Recent colors */}
+        <div style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+          opacity: live ? 1 : 0.4,
+          transition: 'opacity .25s',
+        }}>
+          <div style={{
+            fontSize: 10, color: M3.onSurfaceVar,
+            textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600,
+            width: 52,
+          }}>Recent</div>
+          <div style={{ flex: 1, display: 'flex', gap: 8 }}>
+            {recents.length === 0 && (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} style={{
+                  width: 28, height: 28, borderRadius: 8,
+                  background: M3.surfaceVar,
+                  border: `1px dashed ${M3.outline}`,
+                }} />
+              ))
+            )}
+            {recents.slice(0, 5).map((c, i) => {
+              const [rr, gg, bb] = hsvToRgb(c.h, c.s, c.v);
+              return (
+                <button
+                  key={i}
+                  onClick={() => live && onPickRecent?.(c)}
+                  disabled={!live}
+                  style={{
+                    width: 28, height: 28, borderRadius: 8,
+                    background: `rgb(${rr},${gg},${bb})`,
+                    border: 'none', padding: 0,
+                    cursor: live ? 'pointer' : 'not-allowed',
+                    boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)',
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Color readout */}
+        <div style={{
+          width: '100%',
+          background: M3.surface,
+          border: `1px solid ${M3.outline}`,
+          borderRadius: 20,
+          padding: '14px 16px',
+          display: 'flex', alignItems: 'center', gap: 14,
+        }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 12,
+            background: live ? `rgb(${r},${g},${b})` : '#D6D3CC',
+            boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)',
+            transition: 'background .3s',
+          }} />
+          <div style={{ flex: 1 }}>
+            <div style={{
+              fontSize: 18, fontWeight: 500,
+              fontFamily: 'JetBrains Mono, monospace',
+              letterSpacing: 0.5,
+            }}>
+              {live ? hex : '#——————'}
+            </div>
+            <div style={{
+              fontSize: 12, color: M3.onSurfaceVar,
+              fontFamily: 'JetBrains Mono, monospace',
+            }}>
+              {live ? `${r}, ${g}, ${b}#` : 'R, G, B#'}
+            </div>
+          </div>
+          <button
+            onClick={() => setLedOn(!ledOn)}
+            disabled={!connected}
+            title={connected ? (ledOn ? 'Turn LED off' : 'Turn LED on') : 'Connect first'}
+            style={{
+              width: 48, height: 48, borderRadius: 24,
+              background: ledOn && connected ? M3.primary : M3.surfaceVar,
+              color: ledOn && connected ? M3.onPrimary : M3.onSurfaceVar,
+              border: 'none', cursor: connected ? 'pointer' : 'not-allowed',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              opacity: connected ? 1 : 0.5,
+              transition: 'background .2s, color .2s',
+            }}
+          >
+            <Icon name="power" size={20} />
+          </button>
+        </div>
+      </div>
+
+      {/* TX indicator */}
+      <div style={{
+        padding: '6px 20px 16px',
+        fontSize: 11, color: M3.onSurfaceVar,
+        textAlign: 'center',
+        fontFamily: 'JetBrains Mono, monospace',
+        letterSpacing: 0.3,
+      }}>
+        {live ? `→ sent  "${r},${g},${b}#"` : (connected ? '→ idle' : '—')}
+      </div>
+
+      <style>{`
+        @keyframes pulseA {
+          0%, 100% { box-shadow: 0 0 0 4px ${M3.success}22; }
+          50%      { box-shadow: 0 0 0 6px ${M3.success}11; }
+        }
+        @keyframes blinkA {
+          0%, 100% { opacity: 1; }
+          50%      { opacity: 0.35; }
+        }
+        @keyframes spinA {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+window.VariantA = VariantA;
