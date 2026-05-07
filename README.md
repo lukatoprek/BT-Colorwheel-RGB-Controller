@@ -2,7 +2,7 @@
 
 An Android app for controlling an RGB LED connected to a Croduino Basic3 microcontroller via Bluetooth Classic (HC-06).
 
-[![App Screenshot](https://i.imgur.com/PdntNmu.jpeg)
+![App Screenshot](https://i.imgur.com/PdntNmu.jpeg)
 
 ## What it does
 
